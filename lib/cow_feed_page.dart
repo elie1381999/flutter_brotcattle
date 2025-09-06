@@ -96,9 +96,8 @@ class _CowFeedPageState extends State<CowFeedPage> {
           aid,
           () => _FeedRow(
             animalId: aid,
-            feedItemId: _feedItems.isNotEmpty
-                ? (_feedItems.first['id'] ?? '').toString()
-                : null,
+            // Use null-safe toString so we don't create empty string feed ids
+            feedItemId: _feedItems.isNotEmpty ? (_feedItems.first['id']?.toString()) : null,
             quantity: existing?.quantity ?? 0.0,
           ),
         );
@@ -113,12 +112,8 @@ class _CowFeedPageState extends State<CowFeedPage> {
       }
 
       // remove controllers for animals that no longer exist
-      final existingAids = _animals
-          .map((e) => (e['id'] ?? '').toString())
-          .toSet();
-      final toRemove = _qtyControllers.keys
-          .where((k) => !existingAids.contains(k))
-          .toList();
+      final existingAids = _animals.map((e) => (e['id'] ?? '').toString()).toSet();
+      final toRemove = _qtyControllers.keys.where((k) => !existingAids.contains(k)).toList();
       for (final k in toRemove) {
         _qtyControllers[k]?.dispose();
         _qtyControllers.remove(k);
@@ -137,25 +132,26 @@ class _CowFeedPageState extends State<CowFeedPage> {
     // returns true on success
     if (_selectedFarmId == null ||
         row.animalId == null ||
-        row.feedItemId == null)
+        row.feedItemId == null ||
+        row.feedItemId!.isEmpty) {
+      debugPrint(
+          'recordFeed: missing farm/animal/feed selection (farm=$_selectedFarmId animal=${row.animalId} feed=${row.feedItemId})');
       return false;
+    }
 
     // ensure quantity comes from controller (latest)
     final controller = _qtyControllers[row.animalId!];
-    final qty = controller != null
-        ? double.tryParse(controller.text) ?? 0.0
-        : row.quantity;
+    final qty = controller != null ? double.tryParse(controller.text) ?? 0.0 : row.quantity;
     if (qty <= 0) return false;
     row.quantity = qty; // sync
 
-    final selected = _feedItems.firstWhere(
-      (f) => (f['id'] ?? '').toString() == row.feedItemId,
-      orElse: () => {},
-    );
-    if (selected.isEmpty) {
-      debugPrint('Selected feed item not found in cache');
+    // Robust selection lookup (avoid the '{}' fallback)
+    final matches = _feedItems.where((f) => (f['id']?.toString() ?? '') == row.feedItemId).toList();
+    if (matches.isEmpty) {
+      debugPrint('Selected feed item not found in cache for id=${row.feedItemId}');
       return false;
     }
+    final selected = Map<String, dynamic>.from(matches.first);
 
     final meta = selected['meta'];
     final isFormula = (meta is Map && meta['is_formula'] == true);
@@ -168,9 +164,7 @@ class _CowFeedPageState extends State<CowFeedPage> {
         feedItemId: row.feedItemId!,
         quantity: row.quantity,
         unit: _unit,
-        unitCost: selected['cost_per_unit'] != null
-            ? double.tryParse(selected['cost_per_unit'].toString())
-            : null,
+        unitCost: selected['cost_per_unit'] != null ? double.tryParse(selected['cost_per_unit'].toString()) : null,
       );
       return rec != null;
     }
@@ -183,9 +177,7 @@ class _CowFeedPageState extends State<CowFeedPage> {
         feedItemId: row.feedItemId!,
       );
 
-      final availableFormulaQty = invRow != null
-          ? double.tryParse((invRow['quantity'] ?? '0').toString()) ?? 0.0
-          : 0.0;
+      final availableFormulaQty = invRow != null ? double.tryParse((invRow['quantity'] ?? '0').toString()) ?? 0.0 : 0.0;
 
       if (availableFormulaQty >= row.quantity) {
         // there is enough finished product in inventory -> record against formula item (single transaction)
@@ -195,9 +187,7 @@ class _CowFeedPageState extends State<CowFeedPage> {
           feedItemId: row.feedItemId!,
           quantity: row.quantity,
           unit: _unit,
-          unitCost: selected['cost_per_unit'] != null
-              ? double.tryParse(selected['cost_per_unit'].toString())
-              : null,
+          unitCost: selected['cost_per_unit'] != null ? double.tryParse(selected['cost_per_unit'].toString()) : null,
           note: 'Recorded from finished formula',
         );
         return rec != null;
@@ -285,18 +275,10 @@ class _CowFeedPageState extends State<CowFeedPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Record all feeds?'),
-        content: const Text(
-          'This will record the entered quantities for all animals. Proceed?',
-        ),
+        content: const Text('This will record the entered quantities for all animals. Proceed?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Yes'),
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Yes')),
         ],
       ),
     );
@@ -310,25 +292,18 @@ class _CowFeedPageState extends State<CowFeedPage> {
       // iterate rows snapshot to avoid mutation issues
       final rows = List<_FeedRow>.from(_rows.values);
       for (final row in rows) {
-        if (row.animalId == null || row.feedItemId == null) continue;
+        if (row.animalId == null || row.feedItemId == null || row.feedItemId!.isEmpty) continue;
         // read latest quantity from controller
         final controller = _qtyControllers[row.animalId!];
-        final qty = controller != null
-            ? double.tryParse(controller.text) ?? 0.0
-            : row.quantity;
+        final qty = controller != null ? double.tryParse(controller.text) ?? 0.0 : row.quantity;
         if (qty <= 0) continue;
         row.quantity = qty;
 
         final ok = await _recordFeedForRow(row);
-        if (ok)
-          success++;
-        else
-          failed++;
+        if (ok) success++;
+        else failed++;
       }
-      _showSnack(
-        'Recorded: $success succeeded, $failed failed',
-        success: failed == 0,
-      );
+      _showSnack('Recorded: $success succeeded, $failed failed', success: failed == 0);
       // refresh inventory and feed txs
       await _reloadForFarm();
     } catch (e, st) {
@@ -340,15 +315,13 @@ class _CowFeedPageState extends State<CowFeedPage> {
   }
 
   Future<void> _recordSingle(_FeedRow r) async {
-    if (_selectedFarmId == null || r.animalId == null || r.feedItemId == null) {
+    if (_selectedFarmId == null || r.animalId == null || r.feedItemId == null || r.feedItemId!.isEmpty) {
       _showSnack('Select farm/animal/feed', error: true);
       return;
     }
     // ensure latest qty from controller
     final controller = _qtyControllers[r.animalId!];
-    final qty = controller != null
-        ? double.tryParse(controller.text) ?? 0.0
-        : r.quantity;
+    final qty = controller != null ? double.tryParse(controller.text) ?? 0.0 : r.quantity;
     if (qty <= 0) {
       _showSnack('Enter a positive quantity', error: true);
       return;
@@ -374,13 +347,11 @@ class _CowFeedPageState extends State<CowFeedPage> {
 
   void _showSnack(String msg, {bool error = false, bool success = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: error ? Colors.red : (success ? Colors.green : null),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? Colors.red : (success ? Colors.green : null),
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   Widget _buildTopControls(double maxWidth) {
@@ -397,10 +368,7 @@ class _CowFeedPageState extends State<CowFeedPage> {
           setState(() => _selectedFarmId = v);
           _reloadForFarm();
         },
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: 'Select farm',
-        ),
+        decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Select farm'),
       ),
     );
 
@@ -408,12 +376,8 @@ class _CowFeedPageState extends State<CowFeedPage> {
       width: 120,
       child: TextFormField(
         controller: _unitController,
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          labelText: 'Unit (top)',
-        ),
-        onChanged: (v) =>
-            setState(() => _unit = v.trim().isEmpty ? 'kg' : v.trim()),
+        decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Unit (top)'),
+        onChanged: (v) => setState(() => _unit = v.trim().isEmpty ? 'kg' : v.trim()),
       ),
     );
 
@@ -436,13 +400,7 @@ class _CowFeedPageState extends State<CowFeedPage> {
             ],
           )
         : Row(
-            children: [
-              farmDropdown,
-              const SizedBox(width: 8),
-              unitField,
-              const SizedBox(width: 8),
-              actions,
-            ],
+            children: [farmDropdown, const SizedBox(width: 8), unitField, const SizedBox(width: 8), actions],
           );
   }
 
@@ -450,22 +408,14 @@ class _CowFeedPageState extends State<CowFeedPage> {
     final aid = (a['id'] ?? '').toString();
     final tag = (a['tag'] ?? a['name'] ?? aid).toString();
     final row = _rows.putIfAbsent(
-      aid,
-      () => _FeedRow(
-        animalId: aid,
-        feedItemId: _feedItems.isNotEmpty
-            ? (_feedItems.first['id'] ?? '').toString()
-            : null,
-        quantity: 0.0,
-      ),
-    );
+        aid,
+        () => _FeedRow(
+            animalId: aid,
+            feedItemId: _feedItems.isNotEmpty ? (_feedItems.first['id']?.toString()) : null,
+            quantity: 0.0));
 
-    final controller = _qtyControllers.putIfAbsent(
-      aid,
-      () => TextEditingController(
-        text: row.quantity == 0.0 ? '' : row.quantity.toString(),
-      ),
-    );
+    final controller =
+        _qtyControllers.putIfAbsent(aid, () => TextEditingController(text: row.quantity == 0.0 ? '' : row.quantity.toString()));
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -475,10 +425,7 @@ class _CowFeedPageState extends State<CowFeedPage> {
           children: [
             Expanded(
               flex: 2,
-              child: Text(
-                tag,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+              child: Text(tag, style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -487,27 +434,19 @@ class _CowFeedPageState extends State<CowFeedPage> {
                 value: row.feedItemId,
                 items: _feedItems.isEmpty
                     ? [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('No feeds/formulas — add inventory'),
-                        ),
+                        const DropdownMenuItem<String>(
+                            value: null, child: Text('No feeds/formulas — add inventory'))
                       ]
                     : _feedItems.map((f) {
-                        final id = (f['id'] ?? '').toString();
+                        final id = (f['id']?.toString() ?? '');
                         final name = (f['name'] ?? '').toString();
                         final meta = f['meta'];
-                        final isFormula =
-                            (meta is Map && meta['is_formula'] == true);
-                        return DropdownMenuItem(
-                          value: id,
-                          child: Text(name + (isFormula ? ' (formula)' : '')),
-                        );
+                        final isFormula = (meta is Map && meta['is_formula'] == true);
+                        return DropdownMenuItem(value: id, child: Text(name + (isFormula ? ' (formula)' : '')));
                       }).toList(),
                 onChanged: (v) => setState(() => row.feedItemId = v),
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Feed / Formula',
-                ),
+                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Feed / Formula'),
+                hint: _feedItems.isEmpty ? const Text('No feeds available') : null,
               ),
             ),
             const SizedBox(width: 8),
@@ -515,21 +454,13 @@ class _CowFeedPageState extends State<CowFeedPage> {
               width: 120,
               child: TextFormField(
                 controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  labelText: 'Qty ($_unit)',
-                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(border: const OutlineInputBorder(), labelText: 'Qty ($_unit)'),
                 onChanged: (v) => row.quantity = double.tryParse(v) ?? 0.0,
               ),
             ),
             const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: () => _recordSingle(row),
-              child: const Text('Record'),
-            ),
+            ElevatedButton(onPressed: () => _recordSingle(row), child: const Text('Record')),
           ],
         ),
       ),
@@ -539,7 +470,9 @@ class _CowFeedPageState extends State<CowFeedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Feed Animals (per-animal quick)')),
+      appBar: AppBar(
+        title: const Text('Feed Animals (per-animal quick)'),
+      ),
       body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -547,25 +480,14 @@ class _CowFeedPageState extends State<CowFeedPage> {
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: [
-                    LayoutBuilder(
-                      builder: (c, constraints) =>
-                          _buildTopControls(constraints.maxWidth),
-                    ),
+                    LayoutBuilder(builder: (c, constraints) => _buildTopControls(constraints.maxWidth)),
                     const SizedBox(height: 12),
                     Expanded(
                       child: _animals.isEmpty
                           ? Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(
-                                    Icons.pets,
-                                    size: 48,
-                                    color: Colors.black26,
-                                  ),
-                                  SizedBox(height: 8),
-                                  Text('No animals (select farm)'),
-                                ],
+                                children: const [Icon(Icons.pets, size: 48, color: Colors.black26), SizedBox(height: 8), Text('No animals (select farm)')],
                               ),
                             )
                           : RefreshIndicator(
@@ -573,8 +495,7 @@ class _CowFeedPageState extends State<CowFeedPage> {
                               child: ListView.builder(
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 itemCount: _animals.length,
-                                itemBuilder: (ctx, i) =>
-                                    _buildAnimalRow(_animals[i]),
+                                itemBuilder: (ctx, i) => _buildAnimalRow(_animals[i]),
                               ),
                             ),
                     ),
