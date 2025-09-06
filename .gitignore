@@ -93,3 +93,6 @@ app.*.map.json
 >>>>>>> 7c57eb38b28c16dba2b8611c41326f4f3cc99c4e
 
 .vscode/templates
+
+# Local Netlify folder
+.netlify

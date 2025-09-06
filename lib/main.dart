@@ -108,26 +108,26 @@ class _LoginHandlerState extends State<LoginHandler> {
         child: _isLoading
             ? const CircularProgressIndicator()
             : _error != null
-                ? Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ],
+            ? Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
                     ),
-                  )
-                : const Text('Please open this app from the Telegram bot'),
+                    const SizedBox(height: 16),
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
+                ),
+              )
+            : const Text('Please open this app from the Telegram bot'),
       ),
     );
   }
@@ -149,7 +149,7 @@ class HomeTabs extends StatelessWidget {
           bottom: TabBar(
             isScrollable: true, // optional, nicer with many tabs
             tabs: const [
-              Tab(text: 'Milk Production'),
+              Tab(text: 'Milk pro'),
               Tab(text: 'Animals'),
               Tab(text: 'Net per Animal'),
               //Tab(text: 'Fill Net'),
@@ -172,7 +172,6 @@ class HomeTabs extends StatelessWidget {
     );
   }
 }
-
 
 /*scroll without
 import 'package:flutter/material.dart';

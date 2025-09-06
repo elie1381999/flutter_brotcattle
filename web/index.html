@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <!-- Base href placeholder for Flutter -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+  <meta name="description" content="A Flutter web project.">
 
   <!-- viewport -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,22 +21,22 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>flutter_brotcattle</title>
+
+  <!-- Manifest -->
   <link rel="manifest" href="manifest.json">
 
-  <!-- ✨ FIX overscroll / pull-down closing Telegram: CSS + JS solution -->
+  <!-- Prevent Telegram overscroll/pull-down closing -->
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      /* prevent the outer container from receiving overscroll gestures */
       overscroll-behavior: none;
       overscroll-behavior-y: contain;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-y;
     }
 
-    /* Make sure your app's main container (if any) allows normal scrolling */
     #flutter-root, #app {
       height: 100%;
       overflow: auto;
@@ -43,12 +44,10 @@
     }
   </style>
 
-  <!-- Small script to stop pull-to-close in host (Telegram) while keeping inner scrolling intact -->
   <script>
     (function () {
       let startY = 0;
 
-      // Find a scrollable ancestor of the event target (excluding body)
       function findScrollable(el) {
         while (el && el !== document.body && el !== document.documentElement) {
           const style = window.getComputedStyle(el);
@@ -70,25 +69,19 @@
       document.addEventListener('touchmove', function (e) {
         if (!e.touches || e.touches.length !== 1) return;
         const currentY = e.touches[0].clientY;
-        const deltaY = currentY - startY; // positive when pulling down
+        const deltaY = currentY - startY;
 
-        // If the user is interacting with a scrollable child, allow that child to handle scroll.
         const scroller = findScrollable(e.target);
 
         if (scroller) {
-          // If child is at top and user pulls down, prevent outer bounce which may close the webview.
           if (deltaY > 0 && scroller.scrollTop <= 0) {
             e.preventDefault();
-          }
-          // If child is at bottom and user pushes up, prevent outer bounce.
-          else if (deltaY < 0 && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight) {
+          } else if (deltaY < 0 && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight) {
             e.preventDefault();
           } else {
-            // allow the child to scroll normally
             return;
           }
         } else {
-          // No inner scrollable: if page is at top and user pulls down, prevent default to stop host from interpreting it.
           const doc = document.scrollingElement || document.documentElement;
           if (doc && doc.scrollTop <= 0 && deltaY > 0) {
             e.preventDefault();
@@ -96,7 +89,6 @@
         }
       }, { passive: false });
 
-      // Desktop: prevent wheel-driven overscroll at top (optional)
       window.addEventListener('wheel', function (e) {
         const doc = document.scrollingElement || document.documentElement;
         if (doc && doc.scrollTop <= 0 && e.deltaY < 0) {
@@ -107,6 +99,7 @@
   </script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <!-- Flutter Web App -->
+  <script src="main.dart.js" type="application/javascript"></script>
 </body>
 </html>
