@@ -149,7 +149,7 @@ class HomeTabs extends StatelessWidget {
           bottom: TabBar(
             isScrollable: true, // optional, nicer with many tabs
             tabs: const [
-              Tab(text: 'Milk pro'),
+              Tab(text: 'Milk p'),
               Tab(text: 'Animals'),
               Tab(text: 'Net per Animal'),
               //Tab(text: 'Fill Net'),
